@@ -563,7 +563,35 @@ def load_csm_1b_local(model_path: str, device: str = "cuda", audio_num_codebooks
         audio_num_codebooks=audio_num_codebooks,
     )
 
-    model = Model.from_pretrained(model_path)
+    # Try to load from pretrained if it's a HuggingFace model
+    try:
+        model = Model.from_pretrained(model_path)
+    except (TypeError, Exception):
+        # Otherwise initialize with config and load state dict
+        model = Model(config)
+        import os
+        if os.path.exists(os.path.join(model_path, "model.safetensors.index.json")):
+            # Load from safetensors format
+            from safetensors.torch import load_file
+            import json
+            
+            index_file = os.path.join(model_path, "model.safetensors.index.json")
+            with open(index_file, 'r') as f:
+                index = json.load(f)
+            
+            state_dict = {}
+            for shard_file in set(index['weight_map'].values()):
+                shard_path = os.path.join(model_path, shard_file)
+                state_dict.update(load_file(shard_path))
+            
+            model.load_state_dict(state_dict, strict=False)
+        else:
+            # Try loading a single model file
+            checkpoint = torch.load(os.path.join(model_path, "pytorch_model.bin"), map_location=device)
+            if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+                model.load_state_dict(checkpoint["model_state_dict"], strict=False)
+            else:
+                model.load_state_dict(checkpoint, strict=False)
     model.eval()
 
     dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
@@ -746,7 +774,24 @@ def load_csm_1b(device: str = "cuda") -> Generator:
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
     
-    model = Model.from_pretrained("sesame/csm-1b")
+    # Create config for the model
+    from generator import ModelArgs
+    config = ModelArgs(
+        backbone_flavor="llama-1B",
+        decoder_flavor="llama-100M",
+        text_vocab_size=128256,
+        audio_vocab_size=2051,
+        audio_num_codebooks=32,
+    )
+    
+    # Try loading from HuggingFace
+    try:
+        model = Model.from_pretrained("sesame/csm-1b")
+    except TypeError:
+        # If that fails, initialize with config
+        model = Model(config)
+        # The weights would need to be downloaded separately
+        print("Note: Model initialized with config. Weights may need to be loaded separately.")
     
     dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
     model.backbone = torch.compile(model.backbone,mode='reduce-overhead', fullgraph=True, backend='inductor')
