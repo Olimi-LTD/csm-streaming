@@ -1,0 +1,12 @@
+{
+    "model_path": "/home/incode/cache/checkpoint-33800",
+    "llm_path": "./models/llama3-8b-instruct.gguf",
+    "system_prompt": "You are a friendly AI.",
+    "reference_audio_path": "./reference.wav",
+    "reference_text": "Hi, how can I help?",
+    "max_tokens": 8192,
+    "voice_speaker_id": 0,
+    "vad_enabled": true,
+    "vad_threshold": 0.5,
+    "embedding_model": "all-MiniLM-L6-v2"
+}

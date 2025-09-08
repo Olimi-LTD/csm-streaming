@@ -15,7 +15,7 @@ import torch
 import torchaudio
 import sounddevice as sd
 import numpy as np
-import whisper
+# import whisper  # Temporarily disabled for testing
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
